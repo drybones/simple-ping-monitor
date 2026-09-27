@@ -39,12 +39,12 @@ async function load() {
   const r = await fetch('api/snapshot', { cache: 'no-store' });
   const snap = await r.json();
   const first = !S.session;
+  if (first || S.session.start !== snap.session.start) S.samples = snap.session.targets.map(() => []);
   S.session = snap.session;
   S.targets = snap.session.targets;
   S.live = snap.live;
   S.label = snap.label || '';
-  S.samples = S.targets.map(() => []);
-  for (const s of snap.samples) S.samples[s.tgt][s.seq] = s;
+  for (const s of snap.samples) putSample(s);
   setSummary(snap.summary);
 
   primary = S.targets.findIndex((t) => !t.gateway);
@@ -63,31 +63,41 @@ async function load() {
   drawAll();
 }
 
+// A sample only moves forward (pending -> ok or lost, lost -> late, and the
+// duplicate count only grows), so keep whichever copy is further along. That
+// lets snapshots and live events be applied in any order without losing data.
+const stage = { pending: 0, lost: 1, ok: 2, late: 2 };
+function putSample(s) {
+  const a = S.samples[s.tgt];
+  if (!a) return;
+  const cur = a[s.seq];
+  if (cur && (stage[cur.st] > stage[s.st] || (stage[cur.st] === stage[s.st] && (cur.dup || 0) > (s.dup || 0)))) return;
+  a[s.seq] = s;
+}
+
 function setSummary(sum) {
   S.summary = sum;
   if (S.live) S.offset = sum.now - Date.now();
 }
 
+// connect subscribes to live updates, then reloads the snapshot every time the
+// stream (re)opens. Subscribing first closes the gap in which a sample could
+// settle after the snapshot was taken but before the stream started.
 function connect() {
   const es = new EventSource('api/events');
-  let dropped = false;
-  es.addEventListener('sample', (e) => {
-    const s = JSON.parse(e.data);
-    if (S.samples[s.tgt]) S.samples[s.tgt][s.seq] = s;
-  });
+  es.addEventListener('sample', (e) => putSample(JSON.parse(e.data)));
   es.addEventListener('summary', (e) => {
     setSummary(JSON.parse(e.data));
     renderPanels();
     drawOverview();
   });
   es.onerror = () => {
-    dropped = true;
     if (S.connected) { S.connected = false; renderHeader(); }
   };
   es.onopen = () => {
     S.connected = true;
     renderHeader();
-    if (dropped) { dropped = false; load(); }
+    load();
   };
 }
 
