@@ -1,0 +1,6 @@
+/pingmon
+/pingmon-*
+/dist/
+/logs/
+*.jsonl
+.DS_Store

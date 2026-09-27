@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ping Monitor</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='1' y='9' width='3' height='6' rx='1' fill='%230ca30c'/><rect x='6.5' y='5' width='3' height='10' rx='1' fill='%23fab219'/><rect x='12' y='1' width='3' height='14' rx='1' fill='%23d03b3b'/></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>Ping Monitor</h1>
+  <div class="meta">
+    <span id="mode" class="mode"></span>
+    <span id="started"></span>
+    <span id="elapsed" class="num"></span>
+  </div>
+</header>
+
+<main>
+  <section id="cards" class="cards" aria-label="Current status"></section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2 id="detail-title">Last 90 seconds</h2>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Time span">
+          <button data-span="30">30 s</button>
+          <button data-span="90">90 s</button>
+          <button data-span="300">5 min</button>
+          <button data-span="900">15 min</button>
+        </div>
+        <button id="back-live" class="btn" hidden>Back to live</button>
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="detail" data-height="260" aria-label="Round-trip time per ping"></canvas>
+      <div class="tip" id="detail-tip" hidden></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Whole session</h2>
+      <span class="hint">Click or drag to zoom in above</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="overview" data-height="190" aria-label="Whole session overview"></canvas>
+      <div class="tip" id="overview-tip" hidden></div>
+    </div>
+    <div class="legend" id="legend-overview"></div>
+  </section>
+
+  <div class="two-col">
+    <section class="panel">
+      <div class="panel-head"><h2>Summary</h2><span class="hint">Whole session</span></div>
+      <div class="table-wrap"><table id="summary" class="stats"></table></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Incidents <span id="incident-count" class="count"></span></h2><span class="hint">Click one to zoom in</span></div>
+      <ol id="incidents" class="incidents"></ol>
+    </section>
+  </div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
