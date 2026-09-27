@@ -1,0 +1,5 @@
+/pingmon
+/pingmon-*
+/dist/
+/logs/
+*.jsonl

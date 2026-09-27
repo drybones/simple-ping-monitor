@@ -1,5 +1,7 @@
 # Simple Ping Monitor: Proposal
 
+> **Status:** built (see the [README](../README.md)). Defaults below were accepted as proposed. Decisions since: no alerts, no OBS integration (the stream is a Mevo Start going straight to YouTube over RTMP; the laptop only starts and monitors it), and week-on-week comparison is deferred (each log ends with a `summary` line to make that easy later).
+
 ## Problem
 
 During the Sunday live stream the church MacBook's connection (which runs partly over powerline adapters) shows three symptoms: latency that sits at 20–30 ms then jumps into the hundreds or thousands of ms, duplicate ICMP replies, and complete dropouts. The aim is a lightweight tool that runs for the length of a service (~90 minutes), records what the link is doing once per second, and shows both "right now" and "the whole service so far" at a glance.
@@ -45,7 +47,7 @@ One page, updated live over Server-Sent Events. Router and internet results are 
 
 ## Implementation choice
 
-I'd recommend **Go**: it compiles to a single self-contained binary for Apple Silicon or Intel with the HTML/JS embedded, so the church MacBook needs nothing installed (no Python, Homebrew, or Node). CPU and memory use are negligible alongside OBS. Charts would use a small library such as uPlot, bundled locally so the page works even when the internet is down (which is exactly when you'll be looking at it). Python with `uv` would be a reasonable alternative if you'd rather be able to tweak the code on site.
+I'd recommend **Go**: it compiles to a single self-contained binary for Apple Silicon or Intel with the HTML/JS embedded, so the church MacBook needs nothing installed (no Python, Homebrew, or Node). CPU and memory use are negligible alongside OBS. Charts are drawn directly on canvas with no external libraries, embedded in the binary, so the page works even when the internet is down (which is exactly when you'll be looking at it). Python with `uv` would be a reasonable alternative if you'd rather be able to tweak the code on site.
 
 ## Platform (decided)
 
