@@ -46,6 +46,7 @@ Useful options (`pingmon -h` lists them all):
 | `-good`, `-warn`, `-severe` | `60`, `150`, `1000` | Latency thresholds in ms |
 | `-port` | `8080` | Web UI port (tries the next few if taken) |
 | `-log-dir` | `~/pingmon-logs` | Where session logs go |
+| `-allow-sleep` | | Let the Mac sleep while monitoring. By default pingmon stops idle sleep (via `caffeinate`) until it exits; closing the lid still sleeps the Mac, so leave it open |
 | `-simulate` | | Fake a flaky network, to try the UI out. Add `-sim-backfill 60m` to start with an hour of history |
 
 ## Reading the dashboard
