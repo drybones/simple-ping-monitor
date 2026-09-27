@@ -4,6 +4,10 @@ A small command-line tool for watching a flaky network connection during a live 
 
 It is a single self-contained binary with the web page built in, so it needs no internet access to display and nothing else installed. See [docs/PROPOSAL.md](docs/PROPOSAL.md) for the background.
 
+![pingmon dashboard: status cards for router and internet, a live 90-second chart and a whole-session overview](docs/screenshot.png)
+
+*The dashboard on a simulated flaky connection (`pingmon -simulate -sim-backfill 75m`).*
+
 ## Install (Apple Silicon Mac)
 
 Download `pingmon-darwin-arm64.tar.gz` from the latest build (GitHub → Actions → *build* → the newest run → Artifacts, or a Release if one has been tagged), then in Terminal:
