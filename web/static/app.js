@@ -379,9 +379,8 @@ function drawFrame(ctx, L, t0, t1, xs) {
   ctx.fillText('dup', L.left - 8, rowY(L, S.targets.length));
   ctx.strokeStyle = C.grid;
   ctx.lineWidth = 1;
-  for (let r = 0; r <= L.rows; r++) {
+  for (let r = 1; r < L.rows; r++) {
     const y = Math.round(L.rowTop + r * L.rowH) + 0.5;
-    if (r === 0) continue;
     ctx.beginPath(); ctx.moveTo(L.left, y); ctx.lineTo(L.left + L.pw, y); ctx.stroke();
   }
 
