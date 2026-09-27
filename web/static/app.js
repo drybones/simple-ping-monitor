@@ -11,7 +11,7 @@ const S = {
   label: '',
   offset: 0,        // server clock minus browser clock
   connected: true,
-  view: { kind: 'live', span: 60000 }, // or { kind: 'zoom', t0, t1 }
+  view: { kind: 'live', span: 90000 }, // or { kind: 'zoom', t0, t1 }
   selected: null,   // selected incident key
   hoverDetail: null,
   hoverOverview: null,
@@ -162,6 +162,15 @@ function renderCards() {
   const box = $('#cards');
   box.replaceChildren(...S.summary.targets.map((t) => {
     const r = t.recent;
+    const statLine = (label, s) => `
+      <div class="recent">
+        <span class="label">${label}:</span>
+        <span>median <b>${s.received ? fmtMs(s.p50_ms) : '–'}</b></span>
+        <span>p95 <b>${s.received ? fmtMs(s.p95_ms) : '–'}</b></span>
+        <span>lost <b>${s.lost + s.late}</b></span>
+        <span>dup <b>${s.dups}</b></span>
+        <span>jitter <b>${s.received > 1 ? fmtMs(s.jitter_ms) : '–'}</b></span>
+      </div>`;
     const stalled = t.unanswered_for_s >= 3;
     const rtt = t.last_rtt_ms == null || stalled ? '–' : fmtMs(t.last_rtt_ms).replace(/ (ms|s)$/, '<small>$1</small>');
     let reason = t.reason ? t.reason[0].toUpperCase() + t.reason.slice(1) : '';
@@ -174,14 +183,8 @@ function renderCards() {
       </div>
       <div class="rtt">${rtt}</div>
       <div class="reason${t.status === 'bad' ? ' alert' : ''}">${esc(reason)}</div>
-      <div class="recent">
-        <span>last 30 s:</span>
-        <span>median <b>${r.received ? fmtMs(r.p50_ms) : '–'}</b></span>
-        <span>p95 <b>${r.received ? fmtMs(r.p95_ms) : '–'}</b></span>
-        <span>lost <b>${r.lost + r.late}</b></span>
-        <span>dup <b>${r.dups}</b></span>
-        <span>jitter <b>${r.received > 1 ? fmtMs(r.jitter_ms) : '–'}</b></span>
-      </div>`;
+      ${statLine('last 30 s', r)}
+      ${statLine('session', t.total)}`;
     return c;
   }));
 }
@@ -271,6 +274,9 @@ function renderLegends() {
     <span><i class="sw lost"></i>lost</span>
     <span><i class="sw" style="background:var(--pending)"></i>waiting</span>
     ${series}
+    <span>Top rows:</span>
+    <span><svg class="sw" viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="var(--severe)" stroke-width="1.6" stroke-linecap="round"/></svg>lost</span>
+    <span><svg class="sw" viewBox="0 0 10 10"><circle cx="5" cy="5" r="3.8" fill="none" stroke="var(--severe)" stroke-width="1.4"/></svg>late reply</span>
     <span><i class="sw dot" style="background:var(--dup)"></i>duplicate reply</span>`;
   $('#legend-overview').innerHTML = `<span>Bars: <b>${esc(S.targets[primary].name)}</b> median (solid) and worst (faint) per block, coloured by latency:</span>${common}
     ${series.replace(/\(line\)/g, '(median)')}
@@ -296,7 +302,7 @@ function zoomTo(t0, t1) {
 }
 
 function goLive() {
-  S.view = { kind: 'live', span: S.view.kind === 'live' ? S.view.span : 60000 };
+  S.view = { kind: 'live', span: S.view.kind === 'live' ? S.view.span : 90000 };
   S.selected = null;
   renderIncidents();
   updateControls();
@@ -502,22 +508,14 @@ function drawDetail() {
     ctx.lineJoin = 'round';
     ctx.beginPath();
     let pen = false;
-    const pts = [];
     for (let q = a; q <= b; q++) {
       const s = arr[q];
       if (!s || !(s.st === 'ok' || s.st === 'late')) { pen = false; continue; }
       const x = xs(s.t), y = yOf(L, s.rtt);
       if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
       pen = true;
-      pts.push([x, y]);
     }
     ctx.stroke();
-    if (pxPer >= 6) {
-      ctx.fillStyle = colour;
-      ctx.strokeStyle = C.surface;
-      ctx.lineWidth = 1.5;
-      for (const [x, y] of pts) { ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); ctx.stroke(); }
-    }
   });
 
   // Event rows: losses per target, then duplicates
