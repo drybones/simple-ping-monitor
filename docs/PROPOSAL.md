@@ -47,15 +47,17 @@ One page, updated live over Server-Sent Events. Router and internet results are 
 
 I'd recommend **Go**: it compiles to a single self-contained binary for Apple Silicon or Intel with the HTML/JS embedded, so the church MacBook needs nothing installed (no Python, Homebrew, or Node). CPU and memory use are negligible alongside OBS. Charts would use a small library such as uPlot, bundled locally so the page works even when the internet is down (which is exactly when you'll be looking at it). Python with `uv` would be a reasonable alternative if you'd rather be able to tweak the code on site.
 
+## Platform (decided)
+
+The target machine is an Apple Silicon MacBook, so the release is a single `darwin/arm64` binary. It's unsigned, so macOS's Gatekeeper will need a one-time "Open Anyway" (or `xattr -d com.apple.quarantine pingmon`). The web server listens on `127.0.0.1` only; viewing from a phone or another device is not required.
+
 ## Out of scope (for now)
 
 Bandwidth testing, a native Mac app, remote or cloud dashboards, and automatic remediation are all out of scope.
 
 ## Questions for you
 
-1. **The Mac.** Is it Apple Silicon or Intel, and which macOS version? Can you run an unsigned binary downloaded from GitHub (a one-off Gatekeeper "Open Anyway" step), or is the machine locked down?
-2. **Where you'll watch it.** Only on the streaming Mac, or also from a phone or tablet on the church Wi-Fi? The latter means listening on the LAN rather than just localhost.
-3. **Alerts.** Do you want an audible or macOS notification when an outage starts, or is it strictly glance-and-review? (During a live service, sound is probably unwelcome.)
-4. **Thresholds.** Do the defaults above (60 / 150 / 1000 ms, 5 s loss window) match what you'd call good, bad and awful for your stream?
-5. **After the service.** Is the log file plus the ability to reload it in the UI enough, or would a one-page summary export (e.g. Markdown or PNG) for comparing Sundays be useful, such as before and after replacing the powerline adapters?
-6. **Upload throughput.** Ping won't show upload bandwidth collapsing, which is often what actually breaks a stream. Would you like OBS's own dropped-frame stats (via obs-websocket) overlaid later, or keep this purely about ping?
+1. **Alerts.** Do you want an audible or macOS notification when an outage starts, or is it strictly glance-and-review? (During a live service, sound is probably unwelcome.)
+2. **Thresholds.** Do the defaults above (60 / 150 / 1000 ms, 5 s loss window) match what you'd call good, bad and awful for your stream?
+3. **After the service.** Is the log file plus the ability to reload it in the UI enough, or would a one-page summary export (e.g. Markdown or PNG) for comparing Sundays be useful, such as before and after replacing the powerline adapters?
+4. **Upload throughput.** Ping won't show upload bandwidth collapsing, which is often what actually breaks a stream. Would you like OBS's own dropped-frame stats (via obs-websocket) overlaid later, or keep this purely about ping?
