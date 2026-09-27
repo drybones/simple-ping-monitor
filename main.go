@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -85,6 +86,7 @@ func run(args []string) error {
 	noOpen := fl.Bool("no-open", false, "don't open the browser")
 	simulate := fl.Bool("simulate", false, "use a simulated flaky network instead of real pings")
 	backfill := fl.Duration("sim-backfill", 0, "with -simulate, start this far in the past")
+	allowSleep := fl.Bool("allow-sleep", false, "let the Mac sleep while monitoring (closing the lid sleeps it regardless)")
 	if err := fl.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
@@ -185,7 +187,14 @@ func run(args []string) error {
 	go m.Run(ctx, events)
 
 	fmt.Printf("pingmon: pinging %s every %s\n", describeTargets(targets), *interval)
-	fmt.Printf("  web UI:  %s\n  logging: %s\n  press Ctrl-C to stop\n\n", url, logPath)
+	fmt.Printf("  web UI:  %s\n  logging: %s\n", url, logPath)
+	if !*allowSleep {
+		if awake := keepAwake(); awake != nil {
+			defer awake.Process.Kill()
+			fmt.Println("  keeping the Mac awake (leave the lid open)")
+		}
+	}
+	fmt.Print("  press Ctrl-C to stop\n\n")
 	if !*noOpen {
 		openBrowser(url)
 	}
@@ -301,6 +310,20 @@ func openBrowser(url string) {
 		return
 	}
 	_ = cmd.Start()
+}
+
+// keepAwake stops macOS idle-sleeping for as long as pingmon runs. caffeinate
+// -w exits by itself when this process does, even if pingmon is killed.
+func keepAwake() *exec.Cmd {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	cmd := exec.Command("caffeinate", "-i", "-w", strconv.Itoa(os.Getpid()))
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "pingmon: can't keep the Mac awake: %v\n", err)
+		return nil
+	}
+	return cmd
 }
 
 func describeTargets(ts []monitor.Target) string {
