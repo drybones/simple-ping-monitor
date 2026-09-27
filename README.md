@@ -2,7 +2,7 @@
 
 A small command-line tool for watching a flaky network connection during a live stream. It pings your router and an internet host once a second, records every result, and shows a live dashboard in your browser: the last 30 seconds to 15 minutes in detail, the whole session at a glance, and a list of incidents (latency spikes, packet loss, outages, duplicate replies).
 
-It is a single self-contained binary with the web page built in, so it needs no internet access to display and nothing else installed. See [docs/PROPOSAL.md](docs/PROPOSAL.md) for the background.
+It is a single self-contained binary with the web page built in, so it needs no internet access to display and nothing else installed.
 
 ![pingmon dashboard: status cards for router and internet, a live 90-second chart and a whole-session overview](docs/screenshot.png)
 
