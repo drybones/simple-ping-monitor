@@ -28,7 +28,7 @@ jobs:
             tar czf dist/pingmon-darwin-$arch.tar.gz pingmon
             rm pingmon
           done
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: pingmon-darwin
           path: dist/*.tar.gz
