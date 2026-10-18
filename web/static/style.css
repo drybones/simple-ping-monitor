@@ -83,7 +83,7 @@ button { font: inherit; color: inherit; }
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px;
   justify-content: space-between;
   padding: 16px 20px 4px;
-  max-width: 1280px; margin: 0 auto;
+  max-width: 1680px; margin: 0 auto;
 }
 .meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--ink-2); align-items: center; }
 .mode { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--ink); }
@@ -93,7 +93,7 @@ button { font: inherit; color: inherit; }
 .mode.replay .dot { background: var(--muted); }
 @keyframes pulse { 50% { opacity: .35; } }
 
-main { max-width: 1280px; margin: 0 auto; padding: 8px 20px 32px; display: grid; gap: 16px; }
+main { max-width: 1680px; margin: 0 auto; padding: 8px 20px 32px; display: grid; gap: 16px; }
 
 .panel, .card {
   background: var(--surface);
