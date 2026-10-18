@@ -41,6 +41,7 @@ Useful options (`pingmon -h` lists them all):
 |---|---|---|
 | `-target NAME=HOST` | `internet=8.8.8.8` | Host to ping; repeat for more (replaces the default). E.g. `-target internet=8.8.8.8 -target mevo=192.168.1.40` |
 | `-no-gateway` | | Don't ping the router |
+| `-no-upstream` | | Don't look for a second router behind the first (see below) |
 | `-interval` | `1s` | Time between pings |
 | `-loss-after` | `5s` | A ping with no reply after this long counts as lost; if the reply turns up later it's counted as *late* |
 | `-good`, `-warn`, `-severe` | `60`, `150`, `1000` | Latency thresholds in ms |
@@ -58,6 +59,8 @@ Useful options (`pingmon -h` lists them all):
 **Whole session**: the session in blocks of a few seconds, showing the median (solid) and worst (faint) latency per block, with loss and duplicates in the rows above. Click or drag on it to zoom the detail chart; *Back to live* returns.
 
 **Incidents**: runs of slow, lost or late pings (short gaps of up to 3 good pings are merged). Each is labelled *outage* (3+ consecutive lost/late), *packet loss*, *severe latency* or *high latency*. For the internet target it also says whether the **router was affected at the same time**: if it was, the problem is inside the building (Wi-Fi, powerline adapters, switch); if the router was fine, it's the broadband line or beyond.
+
+If the router pingmon finds is itself behind another router on a `192.168.x.x` address (a double NAT, typically a Wi-Fi access point or extender left in router mode in front of the main router), pingmon finds that one too at startup and pings it as *upstream*. Each router is then compared with the one in front of it: an *upstream* incident with the router fine points at the link between the two, such as powerline adapters.
 
 ## What it measures, and what it doesn't
 

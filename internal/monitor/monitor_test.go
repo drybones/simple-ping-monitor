@@ -139,7 +139,7 @@ func TestIncidents(t *testing.T) {
 		-1, // seq 33: lone loss, still at the end so ongoing
 		20,
 	}
-	incs := findIncidents(cfg, 0, build(0, rtts...), false)
+	incs := findIncidents(cfg, 0, build(0, rtts...))
 	want := []struct {
 		seq     int64
 		kind    string
@@ -163,7 +163,7 @@ func TestIncidentsStopAtPending(t *testing.T) {
 	cfg := testConfig()
 	ts := build(0, 20, 300, 400, 500, 20, 20, 20, 20, 20)
 	ts[5].Status = Pending // may still turn out lost, so the incident isn't over
-	incs := findIncidents(cfg, 0, ts, false)
+	incs := findIncidents(cfg, 0, ts)
 	if len(incs) != 1 || !incs[0].Ongoing {
 		t.Fatalf("want one ongoing incident, got %+v", incs)
 	}
@@ -173,7 +173,7 @@ func TestGatewayCorrelation(t *testing.T) {
 	cfg := testConfig(Target{Name: "router", Gateway: true}, Target{Name: "internet"})
 	router := build(0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
 	internet := build(1, 20, 300, 400, 500, 20, 20, 20, 20, 20, 20, 20, 20, 300, 400, 500, 20, 20, 20, 20, 20)
-	router[13].RTT = 900 // the LAN is struggling during the second spike only
+	router[13].RTT, router[14].RTT = 900, 400 // the LAN is struggling during the second spike only
 	sum := Analyze(cfg, [][]Sample{router, internet}, t0.Add(30*time.Second))
 	if len(sum.Incidents) != 2 {
 		t.Fatalf("got %d incidents, want 2", len(sum.Incidents))
@@ -184,6 +184,51 @@ func TestGatewayCorrelation(t *testing.T) {
 	}
 	if g := sum.Incidents[1].GatewayAlso; g == nil || *g {
 		t.Errorf("first spike should not implicate the router")
+	}
+}
+
+// A long broadband-side incident shouldn't be blamed on the LAN just because
+// the router had one slow reply somewhere inside it.
+func TestGatewayBlipDoesNotImplicate(t *testing.T) {
+	cfg := testConfig(Target{Name: "router", Gateway: true}, Target{Name: "internet"})
+	r := make([]float64, 40)
+	i := make([]float64, 40)
+	for k := range r {
+		r[k], i[k] = 8, 400
+	}
+	r[20] = 900
+	sum := Analyze(cfg, [][]Sample{build(0, r...), build(1, i...)}, t0.Add(60*time.Second))
+	if len(sum.Incidents) != 1 {
+		t.Fatalf("got %d incidents, want 1", len(sum.Incidents))
+	}
+	if g := sum.Incidents[0].GatewayAlso; g == nil || *g {
+		t.Errorf("a single router blip should not implicate the router")
+	}
+}
+
+// With a double NAT the upstream router is judged against the one in front of
+// it, so a stall on the link between the two reads "router fine".
+func TestUpstreamRouterCorrelation(t *testing.T) {
+	cfg := testConfig(Target{Name: "router", Gateway: true}, Target{Name: "upstream", Gateway: true}, Target{Name: "internet"})
+	router := build(0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2)
+	upstream := build(1, 5, 400, 500, 600, 5, 5, 5, 5, 5, 5)
+	internet := build(2, 15, 410, 510, 610, 15, 15, 15, 15, 15, 15)
+	sum := Analyze(cfg, [][]Sample{router, upstream, internet}, t0.Add(20*time.Second))
+	if len(sum.Incidents) != 2 {
+		t.Fatalf("got %d incidents %+v, want 2", len(sum.Incidents), sum.Incidents)
+	}
+	for _, inc := range sum.Incidents {
+		g := inc.GatewayAlso
+		switch inc.Target {
+		case 1:
+			if g == nil || *g {
+				t.Errorf("upstream incident: the router in front of it was fine")
+			}
+		case 2:
+			if g == nil || !*g {
+				t.Errorf("internet incident: the upstream router was affected too")
+			}
+		}
 	}
 }
 

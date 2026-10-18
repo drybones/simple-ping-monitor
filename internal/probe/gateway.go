@@ -2,6 +2,7 @@ package probe
 
 import (
 	"bufio"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -10,7 +11,9 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // DefaultGateway returns the IPv4 address of the default route's gateway,
@@ -68,4 +71,50 @@ func parseProcNetRoute(f io.Reader) (string, error) {
 		}
 	}
 	return "", errors.New("no IPv4 default gateway found")
+}
+
+// UpstreamRouters finds routers behind the default gateway that are still
+// inside the building: a Wi-Fi access point or extender running in router
+// mode in front of the main router (double NAT) hides the main router, and
+// whatever links the two (powerline adapters, say), from the gateway ping.
+// It traces the route to host with the system traceroute, which needs no
+// sudo on macOS, and returns the hops after the gateway, nearest first.
+func UpstreamRouters(gateway, host string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "traceroute", "-n", "-q", "1", "-w", "1", "-m", "3", host).Output()
+	if err != nil {
+		return nil, err
+	}
+	return parseTraceroute(string(out), gateway), nil
+}
+
+// parseTraceroute reads `traceroute -n -q 1` output. The first hop must be
+// the gateway; the hops after it count while they answer from 192.168.x.x.
+// 10.x and 172.16–31.x are left out because ISPs number their own routers
+// from those ranges, so such a hop may well be outside the building.
+func parseTraceroute(out, gateway string) []string {
+	var hops []string
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) < 2 {
+			continue
+		}
+		n, err := strconv.Atoi(f[0])
+		if err != nil {
+			continue // the "traceroute to ..." header
+		}
+		ip := net.ParseIP(f[1]).To4()
+		if n == 1 {
+			if ip == nil || ip.String() != gateway {
+				return nil
+			}
+			continue
+		}
+		if ip == nil || ip[0] != 192 || ip[1] != 168 {
+			break
+		}
+		hops = append(hops, ip.String())
+	}
+	return hops
 }
