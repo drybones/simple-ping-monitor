@@ -8,7 +8,7 @@
 - duplicate ICMP replies;
 - complete dropouts.
 
-The key diagnostic is pinging **the router as well as the internet host**. If both spike together, the problem is inside the building (Wi-Fi or powerline); if only the internet host spikes, it's the broadband line or beyond. Incidents carry `gateway_also` for exactly this reason. Keep that comparison front and centre in any change.
+The key diagnostic is pinging **the router as well as the internet host**. If both spike together, the problem is inside the building (Wi-Fi or powerline); if only the internet host spikes, it's the broadband line or beyond. Incidents carry `gateway_also` for exactly this reason: it is true when a router nearer than the target was bad on at least half of the incident's bad pings. With a double NAT (the church's Wavlink access point runs in router mode, in front of powerline and the TP-Link) each router is compared with the one in front of it. Keep that comparison front and centre in any change.
 
 ## Constraints and settled decisions
 
@@ -22,7 +22,7 @@ The key diagnostic is pinging **the router as well as the internet host**. If bo
 ## Layout
 
 - `main.go`: CLI (the `run` and `view` subcommands, flags, wiring). `terminal.go`: live status line, incident lines and the exit summary.
-- `internal/probe`: produces raw `Sent` and `Reply` events and does no interpretation. `icmp.go` is the real pinger (a per-source random token plus a 64-bit sequence in the payload; replies are matched on the token, not the ICMP ID, because Linux rewrites IDs and macOS delivers every echo reply to every socket). `gateway.go` finds the default route. `sim.go` fakes a flaky powerline link.
+- `internal/probe`: produces raw `Sent` and `Reply` events and does no interpretation. `icmp.go` is the real pinger (a per-source random token plus a 64-bit sequence in the payload; replies are matched on the token, not the ICMP ID, because Linux rewrites IDs and macOS delivers every echo reply to every socket). `gateway.go` finds the default route, plus any `192.168.x.x` routers behind it (double NAT, found with the system `traceroute`), which are pinged as `upstream`. `sim.go` fakes a flaky powerline link.
 - `internal/monitor`: turns events into `Sample`s (pending → ok / lost / late, plus a dup count) in `monitor.go`; the pure analysis (stats, status judgement, incident grouping, router correlation) is in `analysis.go`. Put new analysis logic here, in Go, and unit-test it. The browser only renders.
 - `internal/logfile`: JSON Lines. There's a `session` header, then a `sample` line each time a ping's state settles or changes (the last line per target and sequence wins), then a `summary` line on clean exit. Reading tolerates a truncated final line. Bump `Version` for incompatible changes.
 - `internal/server`: `/api/snapshot` (everything) plus `/api/events` (SSE: `sample` and once-a-second `summary`). A replay session serves the snapshot only.

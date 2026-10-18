@@ -75,7 +75,7 @@ type Incident struct {
 	Dups        int     `json:"dups"`
 	MaxRttMs    float64 `json:"max_rtt_ms"`
 	Ongoing     bool    `json:"ongoing"`
-	GatewayAlso *bool   `json:"gateway_also,omitempty"` // set on non-gateway targets when a gateway is monitored
+	GatewayAlso *bool   `json:"gateway_also,omitempty"` // set when a gateway nearer than this target is monitored
 }
 
 func (i Incident) Describe(targets []Target) string {
@@ -126,19 +126,20 @@ func Analyze(cfg Config, samples [][]Sample, now time.Time) Summary {
 		tsum.SinceReplyMs, tsum.UnansweredForS, tsum.LastRttMs = replyState(ts, now)
 		tsum.Status, tsum.Reason = judge(cfg, recent, tsum.UnansweredForS)
 		sum.Targets = append(sum.Targets, tsum)
-		incidents[t] = findIncidents(cfg, t, ts, false)
+		incidents[t] = findIncidents(cfg, t, ts)
 	}
 
-	var gatewayRuns []Incident
-	for t, tgt := range cfg.Targets {
-		if tgt.Gateway {
-			gatewayRuns = append(gatewayRuns, findIncidents(cfg, t, samples[t], true)...)
-		}
-	}
+	// Gateways are listed nearest first, so each target is compared with the
+	// gateways before it: the internet host with every router, an upstream
+	// router (double NAT) with the one in front of it.
+	var nearer []int
 	for t, list := range incidents {
+		if t > 0 && cfg.Targets[t-1].Gateway {
+			nearer = append(nearer, t-1)
+		}
 		for _, inc := range list {
-			if !cfg.Targets[t].Gateway && len(gatewayRuns) > 0 {
-				also := overlaps(inc, gatewayRuns, cfg.Interval.Milliseconds())
+			if len(nearer) > 0 {
+				also := gatewayAlso(cfg, inc, samples[t], samples, nearer)
 				inc.GatewayAlso = &also
 			}
 			sum.Incidents = append(sum.Incidents, inc)
@@ -283,20 +284,22 @@ func judge(cfg Config, r Stats, unansweredFor float64) (status, reason string) {
 	return "good", ""
 }
 
-// findIncidents groups bad samples (slow, lost or late) into incidents,
-// merging runs separated by at most MergeGap good samples. Unless all is
-// set, trivial runs (fewer than three slow samples and nothing lost, late or
-// severe) are dropped.
-func findIncidents(cfg Config, target int, ts []Sample, all bool) []Incident {
+// bad reports whether a sample was slow, lost or late.
+func (c Config) bad(s *Sample) bool {
+	return s.Status == Lost || s.Status == Late || (s.Status == OK && s.RTT >= c.Thresholds.WarnMs)
+}
+
+// findIncidents groups bad samples into incidents, merging runs separated by
+// at most MergeGap good samples. Trivial runs (fewer than three slow samples
+// and nothing lost, late or severe) are dropped.
+func findIncidents(cfg Config, target int, ts []Sample) []Incident {
 	// Only consider samples up to the first one still in flight, so an
 	// incident is not closed early by a gap that may yet turn out to be lost.
 	n := 0
 	for n < len(ts) && ts[n].Status != Pending {
 		n++
 	}
-	bad := func(s *Sample) bool {
-		return s.Status == Lost || s.Status == Late || (s.Status == OK && s.RTT >= cfg.Thresholds.WarnMs)
-	}
+	bad := cfg.bad
 
 	var out []Incident
 	var cur *Incident
@@ -319,7 +322,7 @@ func findIncidents(cfg Config, target int, ts []Sample, all bool) []Incident {
 		default:
 			cur.Kind = "high latency"
 		}
-		if all || cur.Bad >= 3 || cur.Lost+cur.Late > 0 || cur.MaxRttMs >= cfg.Thresholds.SevereMs {
+		if cur.Bad >= 3 || cur.Lost+cur.Late > 0 || cur.MaxRttMs >= cfg.Thresholds.SevereMs {
 			out = append(out, *cur)
 		}
 		cur = nil
@@ -367,13 +370,26 @@ func dupsBetween(ts []Sample, from, to int) int {
 	return d
 }
 
-func overlaps(inc Incident, others []Incident, slackMs int64) bool {
-	for _, o := range others {
-		if o.Start <= inc.End+slackMs && inc.Start <= o.End+slackMs {
-			return true
+// gatewayAlso reports whether a gateway was bad for at least half of the
+// incident's bad samples, comparing pings sent on the same tick (same seq).
+// Matching ping by ping, rather than asking whether the gateway had any
+// trouble during the incident, stops one router blip from pinning a long
+// broadband-side incident on the LAN.
+func gatewayAlso(cfg Config, inc Incident, ts []Sample, samples [][]Sample, gateways []int) bool {
+	bad, shared := 0, 0
+	for seq := inc.StartSeq; seq < int64(len(ts)) && ts[seq].Sent < inc.End; seq++ {
+		if !cfg.bad(&ts[seq]) {
+			continue
+		}
+		bad++
+		for _, g := range gateways {
+			if seq < int64(len(samples[g])) && cfg.bad(&samples[g][seq]) {
+				shared++
+				break
+			}
 		}
 	}
-	return false
+	return bad > 0 && 2*shared >= bad
 }
 
 func round2(v float64) float64 { return math.Round(v*100) / 100 }

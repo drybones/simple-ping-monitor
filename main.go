@@ -76,6 +76,7 @@ func run(args []string) error {
 	var targets targetList
 	fl.Var(&targets, "target", "`NAME=HOST` to ping; repeatable (default internet=8.8.8.8)")
 	noGateway := fl.Bool("no-gateway", false, "don't ping the router")
+	noUpstream := fl.Bool("no-upstream", false, "don't look for a second router behind the first (double NAT)")
 	interval := fl.Duration("interval", time.Second, "time between pings")
 	lossAfter := fl.Duration("loss-after", 5*time.Second, "count a ping as lost after this long without a reply")
 	good := fl.Float64("good", monitor.DefaultThresholds.GoodMs, "RTT below this is good (ms)")
@@ -112,7 +113,11 @@ func run(args []string) error {
 			}
 		}
 		if gw != "" {
-			targets = append(targetList{{Name: "router", Host: gw, Gateway: true}}, targets...)
+			routers := targetList{{Name: "router", Host: gw, Gateway: true}}
+			if !*simulate && !*noUpstream {
+				routers = append(routers, upstreamRouters(gw, targets)...)
+			}
+			targets = append(routers, targets...)
 		}
 	}
 
@@ -289,6 +294,31 @@ func listen(port int) (net.Listener, error) {
 		}
 	}
 	return nil, err
+}
+
+// upstreamRouters returns targets for any routers found behind the gateway,
+// nearest first, skipping hosts that are already being pinged.
+func upstreamRouters(gw string, targets targetList) targetList {
+	hosts, err := probe.UpstreamRouters(gw, "8.8.8.8")
+	if err != nil {
+		return nil
+	}
+	var out targetList
+outer:
+	for _, h := range hosts {
+		for _, t := range targets {
+			if t.Host == h {
+				continue outer
+			}
+		}
+		name := "upstream"
+		if len(out) > 0 {
+			name = fmt.Sprintf("upstream%d", len(out)+1)
+		}
+		fmt.Fprintf(os.Stderr, "pingmon: %s is behind another router at %s (double NAT); pinging that too, as %q\n", gw, h, name)
+		out = append(out, monitor.Target{Name: name, Host: h, Gateway: true})
+	}
+	return out
 }
 
 func defaultLogDir() string {
